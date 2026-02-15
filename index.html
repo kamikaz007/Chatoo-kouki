@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chatoo Mega Final</title>
+    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root { --pi-purple: #673ab7; --pi-gold: #ffca28; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body, html { margin: 0; padding: 0; font-family: 'Cairo', sans-serif; height: 100%; background: #000; color: white; overflow: hidden; }
+
+        /* الواجهة السينمائية الثابتة */
+        #landing-page {
+            height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.7)), url('https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200');
+            background-size: cover; background-position: center; transition: 0.5s ease;
+        }
+        .hero-btn { background: var(--pi-purple); border: none; padding: 22px 80px; font-size: 24px; border-radius: 60px; color: white; font-weight: 900; cursor: pointer; box-shadow: 0 10px 30px rgba(103,58,183,0.4); }
+
+        /* الواجهة الرئيسية */
+        #app-interface { display: none; height: 100vh; flex-direction: column; background: #0c0c0e; }
+        .top-nav { background: #1a1a2e; padding: 12px; display: flex; gap: 10px; overflow-x: auto; border-bottom: 1px solid #333; }
+        .nav-item { background: rgba(255,202,40,0.1); color: var(--pi-gold); padding: 5px 15px; border-radius: 12px; font-size: 11px; font-weight: 700; border: 1px solid var(--pi-gold); white-space: nowrap; }
+
+        .profile-box { background: rgba(255,255,255,0.05); margin: 15px; padding: 20px; border-radius: 20px; display: flex; align-items: center; gap: 15px; border: 1px solid rgba(255,255,255,0.1); }
+        .u-initial { width: 55px; height: 55px; background: var(--pi-purple); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 22px; }
+
+        .content { flex: 1; overflow-y: auto; padding: 0 20px; }
+        .room-card { background: #1a1a20; border-radius: 25px; margin-bottom: 20px; overflow: hidden; border: 1px solid #333; position: relative; }
+        .badge { position: absolute; top: 15px; left: 15px; background: var(--pi-gold); color: #000; padding: 4px 12px; border-radius: 10px; font-weight: 900; font-size: 11px; }
+
+        /* نظام الدردشة */
+        #chat-room { display: none; position: fixed; inset: 0; background: #0a0a0c; z-index: 2000; flex-direction: column; }
+        .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .bubble { padding: 12px 18px; border-radius: 20px; max-width: 80%; font-size: 14px; }
+        .bubble.me { align-self: flex-end; background: var(--pi-purple); border-bottom-right-radius: 2px; }
+        .bubble.other { align-self: flex-start; background: #25252b; border-bottom-left-radius: 2px; }
+    </style>
+</head>
+<body>
+
+    <div id="landing-page">
+        <h1 style="font-size:80px; color:var(--pi-gold); margin:0;">Chatoo</h1>
+        <p style="opacity:0.8; font-size:18px;">المكان يتحدث.. هل تسمع؟</p>
+        <button class="hero-btn" onclick="forceEnter()">دخول الأعضاء</button>
+    </div>
+
+    <div id="app-interface">
+        <div class="top-nav">
+            <div class="nav-item" onclick="shopAlert()">🛒 متجر الجوائز</div>
+            <div class="nav-item" onclick="shopAlert()">⭐ عضوية VIP</div>
+            <div class="nav-item" onclick="shopAlert()">🎁 هدايا Pi</div>
+        </div>
+
+        <div class="profile-box">
+            <div class="u-initial" id="u-logo">?</div>
+            <div>
+                <div id="u-rank" style="font-size:10px; color:var(--pi-gold);">مستكشف جديد</div>
+                <div id="u-name" style="font-weight:900; font-size:20px;">جاري التحقق...</div>
+                <div id="u-pts" style="font-size:15px; opacity:0.7;">0 π</div>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="room-card" onclick="openChat('الساحة الكبرى')">
+                <div class="badge">جائزة 20+ π</div>
+                <img src="https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=800" style="width:100%; height:160px; object-fit:cover;">
+                <div style="padding:15px;">
+                    <h3 style="margin:0;">الساحة الكبرى</h3>
+                    <p style="font-size:12px; color:#888;">دردش الآن واجمع النقاط.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="chat-room">
+        <div style="padding:15px; display:flex; justify-content:space-between; align-items:center; background:#111;">
+            <button onclick="closeChat()" style="background:none; border:none; color:white; font-size:25px;">✕</button>
+            <span id="room-title" style="font-weight:900;">دردشة</span>
+            <div style="width:30px;"></div>
+        </div>
+        <div class="messages" id="box"></div>
+        <div style="padding:15px; display:flex; gap:10px; background:#111;">
+            <input type="text" id="msg-inp" style="flex:1; background:#222; border:none; padding:15px; border-radius:30px; color:white;" placeholder="اكتب رسالتك...">
+            <button onclick="send()" style="background:var(--pi-gold); border:none; width:50px; height:50px; border-radius:50%;">➤</button>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAeMHTibI7Q1tAToIMNtcoHeWbjhwYj6uQ",
+            authDomain: "chatoo-kouki.firebaseapp.com",
+            projectId: "chatoo-kouki",
+            storageBucket: "chatoo-kouki.firebasestorage.app",
+            messagingSenderId: "555587510833",
+            appId: "1:555587510833:web:b5e108dc90b05347a66b10"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let myName = "Guest_" + Math.floor(Math.random()*999);
+        let activeRoom = "";
+
+        // دالة الدخول الفوري التي لا تعتمد على سرعة اتصال Pi
+        function forceEnter() {
+            document.getElementById('landing-page').style.display = 'none';
+            document.getElementById('app-interface').style.display = 'flex';
+            
+            // محاولة جلب الاسم الحقيقي في الخلفية
+            if(window.Pi) {
+                Pi.init({ version: "2.0", sandbox: true });
+                Pi.authenticate(["username"], (p)=>{}).then(auth => {
+                    myName = auth.user.username;
+                    syncUser();
+                }).catch(() => syncUser());
+            } else { syncUser(); }
+        }
+
+        function syncUser() {
+            document.getElementById('u-name').innerText = "@" + myName;
+            document.getElementById('u-logo').innerText = myName[0].toUpperCase();
+            db.collection("users").doc(myName).onSnapshot(doc => {
+                if(doc.exists) {
+                    const data = doc.data();
+                    document.getElementById('u-pts').innerText = (data.points || 0) + " π";
+                    if(data.isVip) {
+                        document.getElementById('u-rank').innerText = "عضو VIP 👑";
+                        document.getElementById('u-rank').style.color = "#ffca28";
+                    }
+                }
+            });
+        }
+
+        function openChat(n) {
+            activeRoom = n;
+            document.getElementById('chat-room').style.display = 'flex';
+            document.getElementById('room-title').innerText = n;
+            db.collection("rooms").doc(n).collection("msgs").orderBy("time","asc").onSnapshot(snap => {
+                const b = document.getElementById('box');
+                b.innerHTML = "";
+                snap.forEach(d => {
+                    const m = d.data();
+                    const div = document.createElement('div');
+                    div.className = `bubble ${m.user === myName ? 'me' : 'other'}`;
+                    div.innerHTML = `<small style="display:block; font-size:9px; opacity:0.5;">${m.user}</small>${m.text}`;
+                    b.appendChild(div);
+                });
+                b.scrollTop = b.scrollHeight;
+            });
+        }
+
+        async function send() {
+            const i = document.getElementById('msg-inp');
+            if(!i.value) return;
+            await db.collection("rooms").doc(activeRoom).collection("msgs").add({
+                user: myName, text: i.value, time: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            db.collection("users").doc(myName).set({ points: firebase.firestore.FieldValue.increment(20) }, { merge: true });
+            i.value = "";
+        }
+
+        function shopAlert() { alert("متجر الجوائز سيفتح تلقائياً عند وصولك لـ 500 نقطة! استمر في الدردشة."); }
+        function closeChat() { document.getElementById('chat-room').style.display = 'none'; }
+    </script>
+</body>
+</html>

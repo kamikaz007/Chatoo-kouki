@@ -106,25 +106,27 @@
         let isAdmin = false;
 
         async function startApp() {
-            document.getElementById('landing').style.transition = '0.5s';
-            document.getElementById('landing').style.opacity = '0';
-            setTimeout(() => {
-                document.getElementById('landing').style.display = 'none';
-                document.getElementById('main-app').style.display = 'flex';
-            }, 500);
+    // إخفاء واجهة الدخول وإظهار التطبيق فوراً عند الضغط
+    document.getElementById('landing').style.display = 'none';
+    document.getElementById('main-app').style.display = 'flex';
 
-            if (window.Pi) {
-                try {
-                    Pi.init({ version: "2.0", sandbox: false });
-                    const auth = await Pi.authenticate(["username", "payments"], onIncompletePaymentFound);
-                    currentUser = auth.user.username;
-                    // تفعيل رتبة المؤسس لك شخصياً
-                    if(currentUser === "kamikaz007") isAdmin = true;
-                    setupUser();
-                } catch (err) { setupUser(); }
-            } else { setupUser(); }
-            loadMessages();
+    if (window.Pi) {
+        try {
+            Pi.init({ version: "2.0", sandbox: true });
+            const auth = await Pi.authenticate(["username"], onIncompletePaymentFound);
+            currentUser = auth.user.username;
+            if(currentUser === "kamikaz007") isAdmin = true;
+            setupUser();
+        } catch (err) { 
+            console.log("Pi Error:", err);
+            setupUser(); // الدخول كضيف إذا فشل Pi
         }
+    } else {
+        setupUser();
+    }
+    loadMessages();
+}
+
 
         function setupUser() {
             document.getElementById('user-name').innerText = "@" + currentUser;
